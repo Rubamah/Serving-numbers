@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shared Number Grid (1–500)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      margin: 20px 0 10px 0;
+    }
+    .ranges {
+      margin: 10px;
+    }
+    .ranges button {
+      margin: 5px;
+      padding: 10px 15px;
+      font-size: 16px;
+      border: none;
+      border-radius: 5px;
+      background: #f0f0f0;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .ranges button.active {
+      background: black;
+      color: white;
+    }
+    #nowServing {
+      background: black;
+      color: white;
+      padding: 15px;
+      margin: 15px auto;
+      font-size: 2em;
+      border-radius: 6px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 20px;
+      max-width: 500px;
+    }
+    #nowServing span {
+      font-size: 2em;
+    }
+    #nextBtn {
+      padding: 10px 20px;
+      font-size: 1em;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #restartBtn {
+      margin: 20px;
+      padding: 12px 24px;
+      font-size: 1.2em;
+      background: #e74c3c;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    #restartBtn:hover {
+      background: #c0392b;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+      gap: 10px;
+      margin: 20px;
+      max-width: 800px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .cell {
+      border: 2px solid #333;
+      padding: 15px 0;
+      cursor: pointer;
+      font-size: 18px;
+      border-radius: 6px;
+      background: white;
+      color: black;
+      transition: all 0.2s;
+    }
+    .cell.on {
+      background: black;
+      color: white;
+    }
+    @media (max-width: 600px) {
+      .grid {
+        grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
+        gap: 6px;
+      }
+      .cell {
+        font-size: 14px;
+        padding: 10px 0;
+      }
+      #nowServing {
+        flex-direction: column;
+        gap: 10px;
+      }
+    }
+  </style>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+</head>
+<body>
+  <h1>Shared Number Grid (1–500)</h1>
+  <div class="ranges">
+    <button onclick="showRange(1,100,this)">1–100</button>
+    <button onclick="showRange(101,200,this)">101–200</button>
+    <button onclick="showRange(201,300,this)">201–300</button>
+    <button onclick="showRange(301,400,this)">301–400</button>
+    <button onclick="showRange(401,500,this)">401–500</button>
+  </div>
+
+  <div id="nowServing">
+    <span>Now Serving:</span>
+    <span id="number">-</span>
+    <button id="nextBtn" onclick="nextNumber()">Next</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <button id="restartBtn" onclick="restartGrid()">Restart</button>
+
+  <script>
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCWWnMsge75Q3_MDF9Aj9wo4C5KD6RVGfw",
+      authDomain: "q-matic-b7d77.firebaseapp.com",
+      databaseURL: "https://q-matic-b7d77-default-rtdb.firebaseio.com",
+      projectId: "q-matic-b7d77",
+      storageBucket: "q-matic-b7d77.appspot.com",
+      messagingSenderId: "908187704899",
+      appId: "1:908187704899:web:b8bcf33cda90bafe81bef6"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const grid = document.getElementById("grid");
+    const numDiv = document.getElementById("number");
+    let currentNumber = 0;
+
+    function showRange(start, end, btn) {
+      document.querySelectorAll(".ranges button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+
+      grid.innerHTML = "";
+      for (let i = start; i <= end; i++) {
+        const cell = document.createElement("div");
+        cell.className = "cell";
+        cell.textContent = i;
+        cell.onclick = () => toggleNumber(i, cell);
+        grid.appendChild(cell);
+
+        db.ref("numbers/" + i).on("value", snap => {
+          if (snap.val()) cell.classList.add("on");
+          else cell.classList.remove("on");
+        });
+      }
+    }
+
+    function toggleNumber(num) {
+      currentNumber = num;
+      db.ref("latest").set({ number: num, timestamp: Date.now() });
+      db.ref("numbers/" + num).set(true);
+    }
+
+    function nextNumber() {
+      if (!currentNumber) currentNumber = 0;
+      let next = currentNumber + 1;
+      toggleNumber(next);
+    }
+
+    function restartGrid() {
+      if (confirm("Are you sure you want to restart?")) {
+        db.ref("numbers").remove();
+        db.ref("latest").set({ number: "-", timestamp: Date.now() });
+        numDiv.textContent = "-";
+      }
+    }
+
+    db.ref("latest").on("value", snap => {
+      const data = snap.val();
+      if (!data) return;
+      currentNumber = data.number === "-" ? 0 : data.number;
+      numDiv.textContent = data.number;
+    });
+
+    // Default range on load
+    showRange(1, 100, document.querySelector(".ranges button"));
+  </script>
+</body>
+</html>
