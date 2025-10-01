@@ -183,6 +183,7 @@
       currentNumber = num;
       db.ref("latest").set({ number: num, timestamp: Date.now() });
       db.ref("numbers/" + num).set(true);
+      autoSwitchRange(num);
     }
 
     function nextNumber() {
@@ -196,6 +197,18 @@
         db.ref("numbers").remove();
         db.ref("latest").set({ number: "-", timestamp: Date.now() });
         numDiv.textContent = "-";
+        currentNumber = 0;
+        showRange(1, 100, document.querySelector(".ranges button"));
+      }
+    }
+
+    function autoSwitchRange(num) {
+      let rangeIndex = Math.floor((num - 1) / 100);
+      let start = rangeIndex * 100 + 1;
+      let end = start + 99;
+      const buttons = document.querySelectorAll(".ranges button");
+      if (buttons[rangeIndex]) {
+        showRange(start, end, buttons[rangeIndex]);
       }
     }
 
